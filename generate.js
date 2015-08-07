@@ -1,15 +1,25 @@
 var fs = require('fs');
 
+function roundProperly(value, exp) {
+	var divider = Math.pow(10, Math.abs(exp));
+	if (exp > 0) {
+		divider = 10;
+	}
+
+	return Math.round(value * divider) / divider;
+}
+
 function generateRandomData(length) {
 	var values = [];
 	var xValues = {};
 
 	for (var i = 0; i < length; i++) {
-		var y = Math.round(Math.random() * 1000 + 10000),
+		var yCoefficient = Math.random() > 0.5 ? -1 : 1;
+		var y = Math.round(Math.random() * 10) / 10 * yCoefficient,
 			x;
 
 		do {
-			x = Math.round(Math.random() * 10000);
+			x = Math.round(Math.random() * 90);
 		} while (xValues[x]);
 
 		xValues[x] = 1;
@@ -25,6 +35,10 @@ function generateRandomData(length) {
 		return a[0] < b[0] ? -1 : 1;
 	});
 	return values;
+}
+
+function oneTrueMod(value, mod) {
+	return (mod + (value % mod)) % mod;
 }
 
 var params = {
@@ -80,13 +94,17 @@ function getOptimalDomain(values, length) {
 	var exactStep = diff / optimalNumSteps;
 	var exponent = Math.round(Math.log(exactStep) / Math.log(10));
 	var step = Math.pow(10, exponent);
+	var numSteps = diff / step;
+	step = step * Math.round(numSteps / optimalNumSteps);
 
 	return {
-		min: min - (min % step),
-		max: max,
+		min: min - oneTrueMod(min, step),
+		max: max + (step - oneTrueMod(max, step)),
 		step: step,
 		diff: diff,
-		numPoints: optimalNumSteps,
+		numSteps: numSteps,
+		optimalSteps: optimalNumSteps,
+		exp: exponent,
 		exactStep: exactStep
 	};
 }
@@ -215,7 +233,10 @@ function createLineChart(data, xDomain, yDomain) {
 	});
 	indent();
 
+
+
 	for (var i = xDomain.min; i <= xDomain.max; i += xDomain.step) {
+		i = roundProperly(i, xDomain.exp);
 		open('text', {
 			x: margin + yAxisLabelWidth + yAxisGutter + ((i - xDomain.min) * xDomainStepWidth),
 			y: margin + titleHeight + chartHeight + (xAxisGutter * 3 / 4),
@@ -243,6 +264,7 @@ function createLineChart(data, xDomain, yDomain) {
 	var ySteps = Math.ceil((yDomain.max - yDomain.min) / yDomain.step),
 		yDomainStepHeight = chartHeight / ySteps / yDomain.step;
 	for (var i = yDomain.min; i <= yDomain.max; i += yDomain.step) {
+		i = roundProperly(i, yDomain.exp);
 		open('text', {
 			x: margin + yAxisLabelWidth + (yAxisGutter / 2),
 			y: margin + titleHeight + chartHeight - ((i - yDomain.min) * yDomainStepHeight),
